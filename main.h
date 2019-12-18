@@ -28,8 +28,8 @@ struct Net: public torch::nn::Module {
     }
 
     // Implement Algorithm
-    torch::Tensor forward(torch::Tensor x) {
-        x = x.view({32, -1});
+    torch::Tensor forward(torch::Tensor x, int batch_size) {
+        x = x.view({batch_size, -1});
         x = torch::relu(fc1->forward(x));
         x = torch::relu(fc2->forward(x));
         x = fc3->forward(x);
@@ -84,12 +84,10 @@ torch::Tensor process_labels(const std::string& root, bool train);
 std::pair<std::vector<std::string>, std::vector<int>> load_data_from_folder(std::vector<std::string> folders_name);
 
 // Function to train the network on train data
-template<typename Dataloader>
-void train(Dataloader& data_loader, torch::optim::Optimizer& optimizer, size_t dataset_size);
+void train(torch::optim::Optimizer& optimizer, size_t dataset_size);
 
 // Function to test the network on test data
-template<typename Dataloader>
-void test(Dataloader& loader, size_t data_size);
+void test(size_t data_size);
 
 // Custom Dataset class
 class CustomDataset : public torch::data::Dataset<CustomDataset> {

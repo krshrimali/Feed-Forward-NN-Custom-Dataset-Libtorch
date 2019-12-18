@@ -19,6 +19,16 @@ using namespace torch;
 
 auto net = std::make_shared<Net>();
 
+std::string root_string = "/Users/krshrimali/Documents/krshrimali-blogs/bhaiya/fashion-mnist/";
+
+auto train_dataset = CustomDataset(root_string, true).map(torch::data::transforms::Stack<>());
+auto train_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(train_dataset), 32);
+
+auto test_dataset = CustomDataset(root_string, false).map(torch::data::transforms::Stack<>());
+auto test_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(test_dataset), 4);
+
+torch::optim::SGD optimizer(net->parameters(), 0.01); // Learning Rate 0.01
+
 Tensor process_images(const std::string& root, bool train) {
   const auto path =
       join_paths(root, train ? kTrainImagesFilename : kTestImagesFilename);
@@ -55,27 +65,24 @@ Tensor process_labels(const std::string& root, bool train) {
   return tensor.to(torch::kInt64);
 }
 
-template<typename Dataloader>
-void train(Net& net, Dataloader& data_loader, torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
+void train(torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
   /*
   This function trains the network on our data loader using optimizer for given number of epochs.
 
   Parameters
   ==================
-  ConvNet& net: Network struct
-  DataLoader& data_loader: Training data loader
   torch::optim::Optimizer& optimizer: Optimizer like Adam, SGD etc.
   size_t dataset_size: Size of training dataset
   int epoch: Number of epoch for training
   */
 
-  net.train();
+  net->train();
   
   size_t batch_index = 0;
   float mse = 0;
   float Acc = 0.0;
 
-  for(auto& batch: *data_loader) {
+  for(auto& batch: *train_data_loader) {
     auto data = batch.data;
     auto target = batch.target.squeeze();
     
@@ -85,7 +92,7 @@ void train(Net& net, Dataloader& data_loader, torch::optim::Optimizer& optimizer
 
     optimizer.zero_grad();
 
-    auto output = net.forward(data);
+    auto output = net->forward(data, data.sizes()[0]);
     auto loss = torch::nll_loss(output, target);
 
     loss.backward();
@@ -104,34 +111,31 @@ void train(Net& net, Dataloader& data_loader, torch::optim::Optimizer& optimizer
   torch::save(net, "best_model_try.pt");
 }
 
-template<typename Dataloader>
-void test(Net& network, Dataloader& loader, size_t data_size) {
+void test(size_t data_size) {
     /*
      Function to test the network on test data
      
      Parameters
      ===========
-     1. network (torch::jit::script::Module type) - Pre-trained model without last FC layer
-     2. loader (Dataloader& type) - test data loader
-     3. data_size (size_t type) - test data size
+     1. data_size (size_t type) - test data size
      
      Returns
      ===========
      Nothing (void)
      */
-    network.eval();
+    net->eval();
     
     float Loss = 0, Acc = 0;
     
-    for (const auto& batch : *loader) {
-        auto data = batch.data;
+    for (const auto& batch : *test_data_loader) {
+        auto data = batch.data.view({4, -1});
         auto targets = batch.target.view({-1});
         
         data = data.to(torch::kF32);
         targets = targets.to(torch::kInt64);
-
-        auto output = network.forward(data);
         
+        auto output = net->forward(data, data.sizes()[0]);
+
         // output = output.view({output.size(0), -1});
         auto loss = torch::nll_loss(torch::log_softmax(output, 1), targets);
         auto acc = output.argmax(1).eq(targets).sum();
@@ -144,62 +148,8 @@ void test(Net& network, Dataloader& loader, size_t data_size) {
 }
 
 int main() {
-	std::string root_string = "/Users/krshrimali/Documents/krshrimali-blogs/bhaiya/fashion-mnist/";
-	bool train_ = true;
-	auto custom_dataset = CustomDataset(root_string, train_).map(torch::data::transforms::Stack<>());
+  for(int epoch=0; epoch<10; epoch++)
+    train(optimizer, train_dataset.size().value(), epoch);
 
-	auto data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(custom_dataset), 32);
-  train_ = false;
-  auto test_dataset = CustomDataset(root_string, train_).map(torch::data::transforms::Stack<>());
-	auto test_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(test_dataset), 32);
-  // // Create multi-threaded data loader for MNIST data
-	// auto data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
-	// 		std::move(torch::data::datasets::MNIST("/absolute/path/to/data").map(torch::data::transforms::Normalize<>(0.13707, 0.3081)).map(
-	// 			torch::data::transforms::Stack<>())), 64);
-	
-  // Build VGG-16 Network
-
-  torch::optim::SGD optimizer(net->parameters(), 0.01); // Learning Rate 0.01
-
-  train(data_loader, optimizer, custom_dataset.size().value());
-
-  // train(Net& net, Dataloader& data_loader, torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch)
-  test(test_loader, test_dataset.size().value());
-
-	// // net.train();
- //  float Acc = 0.0;
-	// for(size_t epoch=1; epoch<=10; ++epoch) {
-	// 	size_t batch_index = 0;
-	// 	// Iterate data loader to yield batches from the dataset
-	// 	for (auto& batch: *data_loader) {
- //      auto target = batch.target.squeeze();
- //      target = target.to(torch::kInt64);
-
- //      auto data = batch.data;
- //      data = data.to(torch::kF32);
-
-	// 		// Reset gradients
-	// 		optimizer.zero_grad();
-	// 		// Execute the model
-	// 		torch::Tensor prediction = net->forward(data);
-	// 		// Compute loss value
-	// 		torch::Tensor loss = torch::nll_loss(prediction, target);
-	// 		// Compute gradients
-	// 		loss.backward();
-	// 		// Update the parameters
-	// 		optimizer.step();
-
- //      auto acc = prediction.argmax(1).eq(target).sum().item<float>();
- //      Acc += acc;
-
-	// 		// Output the loss and checkpoint every 100 batches
-	// 		if (++batch_index % 10 == 0) {
-	// 			std::cout << "Epoch: " << epoch << " | Batch: " << batch_index 
-	// 				<< " | Loss: " << loss.item<float>() << " | Acc: " << acc/32 << std::endl;
-	// 		}
-	// 	}
-
- //    std::cout << "Epoch: " << epoch << ", Accuracy: " << Acc/60000 << std::endl;
- //    torch::save(net, "net.pt");
-	// }
+  test(test_dataset.size().value());
 }
