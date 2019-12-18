@@ -1,2 +1,11 @@
 # Feed-Forward-NN-Custom-Dataset-Libtorch
-Feed Forward Neural Network  on Custom Dataset using Libtorch
+Feed Forward Neural Network on Custom Dataset using Libtorch
+
+## Error
+
+**TODO:** Add Error Details
+```
+
+```
+
+
