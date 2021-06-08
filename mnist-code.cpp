@@ -8,14 +8,14 @@
 // train size, test size
 constexpr uint32_t kTrainSize = 60000;
 constexpr uint32_t kTestSize = 10000;
-//
+// 
 constexpr uint32_t kImageMagicNumber = 2051;
 constexpr uint32_t kTargetMagicNumber = 2049;
 // size- (28, 28)
 constexpr uint32_t kImageRows = 28;
 constexpr uint32_t kImageColumns = 28;
 // setting filemanes
-// Note that filenames by default is set as "train-images-idx3-ubyte" and downloaded file will be of "train-images.idx3-ubyte" kind. Do correct them before proceeing!
+// Note that filenames by default is set as "train-images-idx3-ubyte" and downloaded file will be of "train-images.idx3-ubyte" kind. Do correct them before proceeing! (although this point not needed is here)
 constexpr const char* kTrainImagesFilename = "train-images-idx3-ubyte";
 constexpr const char* kTrainTargetsFilename = "train-labels-idx1-ubyte";
 constexpr const char* kTestImagesFilename = "t10k-images-idx3-ubyte";
@@ -24,21 +24,32 @@ constexpr const char* kTestTargetsFilename = "t10k-labels-idx1-ubyte";
 using namespace std;
 using namespace torch;
 
+// constructs an object of type Net, returns shared_ptr: that owns and stores pointer to it
 auto net = std::make_shared<Net>();
 
 std::string root_string = "/Users/krshrimali/Documents/krshrimali-blogs/bhaiya/fashion-mnist/";
 
+// CustomDataset(): creates dataset as per needs of users
+// .map(): for transformations
+// torch::data::transforms::Stack<>(): create stack of image and label
+// make_data_loader: for loading data
+// torch::data::samplers::RandomSampler: randomly takes images and their labels from sample
 auto train_dataset = CustomDataset(root_string, true).map(torch::data::transforms::Stack<>());
 auto train_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(train_dataset), 32);
 
 auto test_dataset = CustomDataset(root_string, false).map(torch::data::transforms::Stack<>());
 auto test_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(test_dataset), 4);
 
-torch::optim::SGD optimizer(net->parameters(), 0.01); // Learning Rate 0.01
+// optimizer: set as SGD
+// Learning Rate 0.01
+torch::optim::SGD optimizer(net->parameters(), 0.01); 
 
+// function to process image
 Tensor process_images(const std::string& root, bool train) {
+  // it joins path of root (here, "/Users/krshrimali/Documents/krshrimali-blogs/bhaiya/fashion-mnist/") and train ("train-images-idx3-ubyte" or "t10k-images-idx3-ubyte") as per input passed
   const auto path =
       join_paths(root, train ? kTrainImagesFilename : kTestImagesFilename);
+  // ifstream: to operate in files
   std::ifstream images(path, std::ios::binary);
   TORCH_CHECK(images, "Error opening images file at ", path);
 
@@ -56,7 +67,9 @@ Tensor process_images(const std::string& root, bool train) {
   return tensor.to(torch::kFloat32).div_(255);
 }
 
+// function to process labels
 Tensor process_labels(const std::string& root, bool train) {
+  // it joins path of root and train 
   const auto path =
       join_paths(root, train ? kTrainTargetsFilename : kTestTargetsFilename);
   std::ifstream targets(path, std::ios::binary);
@@ -93,7 +106,7 @@ void train(torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
   
   for(auto& batch: *train_data_loader) {
     auto data = batch.data;
-    auto target = batch.target.squeeze();
+    auto target = batch.target.squeeze();          
     
     // Should be of length: batch_size
     data = data.to(torch::kF32);
@@ -105,7 +118,9 @@ void train(torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
     // used: to set gradients to zero before starting backpropagation
     optimizer.zero_grad();
 
+    // forward propagation
     auto output = net->forward(data, data.sizes()[0]);
+    // nll_loss: negative log likelihood loss
     auto loss = torch::nll_loss(output, target);
     
     // computing gradients 
@@ -165,10 +180,10 @@ void test(size_t data_size) {
 }
 
 int main() {
-  /* training */
+  // training 
   for(int epoch=0; epoch<10; epoch++)
     train(optimizer, train_dataset.size().value(), epoch);
   
-  /* testing */
+  // testing 
   test(test_dataset.size().value());
 }
