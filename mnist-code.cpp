@@ -1,14 +1,21 @@
 /* Sample code for training a FCN on MNIST dataset using PyTorch C++ API */
 /* This code uses VGG-16 Layer Network */
+/* Dataset link: http://yann.lecun.com/exdb/mnist/ */
 
 #include "main.h"
 
+// constexpr: constant expression, applied to variables, funtions & class constructors
+// train size, test size
 constexpr uint32_t kTrainSize = 60000;
 constexpr uint32_t kTestSize = 10000;
+//
 constexpr uint32_t kImageMagicNumber = 2051;
 constexpr uint32_t kTargetMagicNumber = 2049;
+// size- (28, 28)
 constexpr uint32_t kImageRows = 28;
 constexpr uint32_t kImageColumns = 28;
+// setting filemanes
+// Note that filenames by default is set as "train-images-idx3-ubyte" and downloaded file will be of "train-images.idx3-ubyte" kind. Do correct them before proceeing!
 constexpr const char* kTrainImagesFilename = "train-images-idx3-ubyte";
 constexpr const char* kTrainTargetsFilename = "train-labels-idx1-ubyte";
 constexpr const char* kTestImagesFilename = "t10k-images-idx3-ubyte";
@@ -55,6 +62,7 @@ Tensor process_labels(const std::string& root, bool train) {
   std::ifstream targets(path, std::ios::binary);
   TORCH_CHECK(targets, "Error opening targets file at ", path);
 
+  
   const auto count = train ? kTrainSize : kTestSize;
 
   expect_int32(targets, kTargetMagicNumber);
@@ -70,7 +78,7 @@ void train(torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
   This function trains the network on our data loader using optimizer for given number of epochs.
 
   Parameters
-  ==================
+  ==========
   torch::optim::Optimizer& optimizer: Optimizer like Adam, SGD etc.
   size_t dataset_size: Size of training dataset
   int epoch: Number of epoch for training
@@ -78,24 +86,32 @@ void train(torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
 
   net->train();
   
+  // initialization 
   size_t batch_index = 0;
   float mse = 0;
   float Acc = 0.0;
-
+  
   for(auto& batch: *train_data_loader) {
     auto data = batch.data;
     auto target = batch.target.squeeze();
     
     // Should be of length: batch_size
     data = data.to(torch::kF32);
+    
+    // coverting traget to type kInt64
     target = target.to(torch::kInt64);
 
+    // reset gradients
+    // used: to set gradients to zero before starting backpropagation
     optimizer.zero_grad();
 
     auto output = net->forward(data, data.sizes()[0]);
     auto loss = torch::nll_loss(output, target);
-
+    
+    // computing gradients 
     loss.backward();
+    
+    // updating parameters 
     optimizer.step();
 
     auto acc = output.argmax(1).eq(target).sum();
@@ -105,8 +121,9 @@ void train(torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
     batch_index += 1;
   }
 
-  mse = mse/float(batch_index); // Take mean of loss
-
+  // Take mean of loss
+  mse = mse/float(batch_index);
+  
   std::cout << "Epoch: " << epoch << ", " << "Accuracy: " << Acc/dataset_size << ", " << "MSE: " << mse << std::endl;
   torch::save(net, "best_model_try.pt");
 }
@@ -148,8 +165,10 @@ void test(size_t data_size) {
 }
 
 int main() {
+  /* training */
   for(int epoch=0; epoch<10; epoch++)
     train(optimizer, train_dataset.size().value(), epoch);
-
+  
+  /* testing */
   test(test_dataset.size().value());
 }
