@@ -39,6 +39,7 @@ struct Net: public torch::nn::Module {
     torch::nn::Linear fc1{nullptr}, fc2{nullptr}, fc3{nullptr};
 };
 
+// returns true if uint8_t type is casted to uint32_t type
 bool check_is_little_endian() {
   const uint32_t word = 1;
   return reinterpret_cast<const uint8_t*>(&word)[0] == 1;
@@ -65,6 +66,7 @@ uint32_t expect_int32(std::ifstream& stream, uint32_t expected) {
   return value;
 }
 
+// function to join two paths
 std::string join_paths(std::string head, const std::string& tail) {
   if (head.back() != '/') {
     head.push_back('/');
