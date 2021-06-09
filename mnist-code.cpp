@@ -44,9 +44,24 @@ auto test_data_loader = torch::data::make_data_loader<torch::data::samplers::Ran
 // Learning Rate 0.01
 torch::optim::SGD optimizer(net->parameters(), 0.01); 
 
-// function to process image
 Tensor process_images(const std::string& root, bool train) {
+  /* Function to process image
+  
+  Parameters
+  ==========
+  root: type- string
+        absolute path of file
+  train: bool
+         wheater the given folder is training or testing
+         
+   Results
+   =======
+   vector of tensor (images)
+   */
+  
+  // see main.h function
   // it joins path of root (here, "/Users/krshrimali/Documents/krshrimali-blogs/bhaiya/fashion-mnist/") and train ("train-images-idx3-ubyte" or "t10k-images-idx3-ubyte") as per input passed
+  // it checks if '/' is present in adddress or not, if not adds it and then joins path
   const auto path =
       join_paths(root, train ? kTrainImagesFilename : kTestImagesFilename);
   // ifstream: to operate in files
@@ -56,11 +71,15 @@ Tensor process_images(const std::string& root, bool train) {
   const auto count = train ? kTrainSize : kTestSize;
 
   // From http://yann.lecun.com/exdb/mnist/
+  // see main.h function
   expect_int32(images, kImageMagicNumber);
   expect_int32(images, count);
   expect_int32(images, kImageRows);
   expect_int32(images, kImageColumns);
 
+  // torch::empty : returns tensor filled with uninitialized data
+  // reinterpret_cast: casting operator, convert one pointer to another pointer 
+  // numel(): returns total number of elements in input tensor
   auto tensor =
       torch::empty({count, 1, kImageRows, kImageColumns}, torch::kByte);
   images.read(reinterpret_cast<char*>(tensor.data_ptr()), tensor.numel());
@@ -69,13 +88,11 @@ Tensor process_images(const std::string& root, bool train) {
 
 // function to process labels
 Tensor process_labels(const std::string& root, bool train) {
-  // it joins path of root and train 
   const auto path =
       join_paths(root, train ? kTrainTargetsFilename : kTestTargetsFilename);
   std::ifstream targets(path, std::ios::binary);
   TORCH_CHECK(targets, "Error opening targets file at ", path);
 
-  
   const auto count = train ? kTrainSize : kTestSize;
 
   expect_int32(targets, kTargetMagicNumber);
@@ -95,6 +112,10 @@ void train(torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
   torch::optim::Optimizer& optimizer: Optimizer like Adam, SGD etc.
   size_t dataset_size: Size of training dataset
   int epoch: Number of epoch for training
+  
+  Returns
+  =======
+  Nothing (void)
   */
 
   net->train();
@@ -152,7 +173,7 @@ void test(size_t data_size) {
      1. data_size (size_t type) - test data size
      
      Returns
-     ===========
+     =======
      Nothing (void)
      */
     net->eval();
